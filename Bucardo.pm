@@ -4637,6 +4637,7 @@ sub connect_database {
             }
             ## For now, we simply require it
             require MongoDB;
+            require DateTime::Format::Pg; ## for coercing timestamps to Date
             my $conn = MongoDB::Connection->new($dsn); ## no critic
             $dbh = $conn->get_database($d->{dbname});
             my $backend = 0;
@@ -8604,6 +8605,14 @@ sub push_rows {
                             }
                             elsif ($goat->{columnhash}{$key}{ftype} =~ /real|double|numeric/o) {
                                 $object->{$key} = strtod($object->{$key});
+                            }
+                            elsif ($goat->{columnhash}{$key}{ftype} =~ /timestamp/o) {
+                                ## coerce timestamps to Mongo Date type.
+                                my $ts = DateTime::Format::Pg->parse_timestamptz($object->{$key});
+                                if ($ts->time_zone()->is_floating()) {
+                                    $ts->set_time_zone('UTC');
+                                }
+                                $object->{$key} = $ts;
                             }
                         }
                         $self->{collection}->insert($object, { safe => 1 });
