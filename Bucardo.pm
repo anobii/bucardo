@@ -8196,7 +8196,6 @@ sub delete_rows {
 
             ## We may need to batch these to keep the total message size reasonable
             my $max = keys %$rows;
-            $max--;
 
             ## The bottom of our current array slice
             my $bottom = 0;
@@ -8209,45 +8208,28 @@ sub delete_rows {
                 ## Stop at the total number of rows
                 $top = $max if $top > $max;
 
-                ## If we have a single key, we can use the '$in' syntax
-                if ($numpks <= 1) {
-                    my @newarray = @{ $delkeys[0] }[$bottom..$top];
-                    my $result = $self->{collection}->remove(
-                        {$pkcolsraw => { '$in' => \@newarray }}, { safe => 1 });
-                    $count{$t} += $result->{n};
-                }
-                else {
-                    ## For multi-column primary keys, we cannot use '$in', sadly.
-                    ## Thus, we will just call delete once per row
 
-                    ## Put the names into an easy to access array
-                    my @realpknames = split /,/ => $pkcolsraw;
+                ## Put the names into an easy to access array
+                my @realpknames = split /,/ => $pkcolsraw;
+                my %pkcols = ();
 
-                    my @find;
-
-                    ## Which row we are currently processing
-                    my $numrows = scalar keys %$rows;
-                    for my $rownumber (0..$numrows-1) {
-                        for my $pknum (0..$numpks-1) {
-                            push @find => $realpknames[$pknum], $delkeys[$pknum][$rownumber];
-                        }
+                ## Which row we are currently processing
+                my $numrows = scalar keys %$rows;
+                for my $rownumber ($bottom..$top-1) {
+                    for my $pknum (0..$numpks-1) {
+                        push (@{$pkcols{$realpknames[$pknum]}{'$in'}}, $delkeys[$pknum][$rownumber]);
                     }
-
-                    my $result = $self->{collection}->remove(
-                        { '$and' => \@find }, { safe => 1 });
-
-                    $count{$t} += $result->{n};
-
-                    ## We do not need to loop, as we just went 1 by 1 through the whole list
-                    last MONGODEL;
-
                 }
+
+                my $result = $self->{collection}->remove(\%pkcols, { safe => 1 });
+
+                $count{$t} += $result->{n};
 
                 ## Bail out of the loop if we've hit the max
                 last MONGODEL if $top >= $max;
 
                 ## Assign the bottom of our array slice to be above the current top
-                $bottom = $top + 1;
+                $bottom = $top;
 
                 redo MONGODEL;
             }
