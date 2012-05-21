@@ -541,6 +541,35 @@ ALTER TABLE bucardo.customcols
   ON UPDATE CASCADE ON DELETE CASCADE;
 
 
+---
+--- Cast the named columns to the specified types
+---
+CREATE SEQUENCE bucardo.customcoltypes_id_seq;
+CREATE TABLE bucardo.customcoltypes (
+  id       INTEGER      NOT NULL DEFAULT nextval('customcoltypes_id_seq'),
+                          CONSTRAINT customcoltypes_id_pk PRIMARY KEY (id),
+  srcdb    TEXT         NOT NULL,
+  schname  TEXT         NOT NULL,
+  tablename TEXT	NOT NULL,
+  colname  TEXT         NOT NULL,
+  valtype  TEXT         NOT NULL,
+  cdate    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE bucardo.customcoltypes IS
+  $$Columns from the source are set to the specified type in the target.$$
+
+-- Make sure that we are working with known databases
+ALTER TABLE bucardo.customcoltypes
+  ADD CONSTRAINT customcols_srcdb_fk
+  FOREIGN KEY (srcdb) REFERENCES bucardo.db (name)
+  ON UPDATE CASCADE ON DELETE CASCADE;
+
+-- Ensure uniqueness of srcdb, schname, tablename, colname, valtype combo
+ALTER TABLE bucardo.customcoltypes
+  ADD CONSTRAINT srcdb_schname_tablename_colname_valtype_uniq
+  UNIQUE (srcdb, schname, tablename, colname, valtype);
+
+
 --
 -- Keep track of syncs as they run: provides instant and historical status information
 --

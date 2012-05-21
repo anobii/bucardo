@@ -8157,38 +8157,37 @@ sub delete_rows {
                 @{ $delkeys[0] } = map { decode_base64($_) } keys %$rows;
             }
             else {
+	      ## Break apart the primary keys into an array of arrays
+	      my @fullrow = map { [split '\0'] } keys %$rows;
 
-                ## Break apart the primary keys into an array of arrays
-                my @fullrow = map { [split '\0'] } keys %$rows;
+	      ## Which primary key column we are currently using
+	      my $pknum = 0;
 
-                ## Which primary key column we are currently using
-                my $pknum = 0;
+	      ## Walk through each column making up the primary key
+	      for my $realpkname (split /,/ => $pkcolsraw) {
 
-                ## Walk through each column making up the primary key
-                for my $realpkname (split /,/ => $pkcolsraw) {
+		## Grab what type this column is
+		## We need to map non-strings to correct types as best we can
+		my $type = $goat->{columnhash}{$realpkname}{ftype};
 
-                    ## Grab what type this column is
-                    ## We need to map non-strings to correct types as best we can
-                    my $type = $goat->{columnhash}{$realpkname}{ftype};
-
-                    ## For integers, we simply force to a Perlish int
-                    if ($type =~ /smallint|integer|bigint/o) {
-                        @{ $delkeys[$pknum] } = map { int $_->[$pknum] } @fullrow;
-                    }
-                    ## Non-integer numbers get set via the strtod command from the 'POSIX' module
-                    elsif ($type =~ /real|double|numeric/o) {
-                        @{ $delkeys[$pknum] } = map { strtod $_->[$pknum] } @fullrow;
-                    }
-                    ## Boolean becomes true Perlish booleans via the 'boolean' module
-                    elsif ($type eq 'boolean') {
-                        @{ $delkeys[$pknum] } = map { $_->[$pknum] eq 't' ? true : false } @fullrow;
-                    }
-                    ## Everything else gets a direct mapping
-                    else {
-                        @{ $delkeys[$pknum] } = map { $_->[$pknum] } @fullrow;
-                    }
-                    $pknum++;
-                }
+		## For integers, we simply force to a Perlish int
+		if ($type =~ /smallint|integer|bigint/o) {
+		  @{ $delkeys[$pknum] } = map { int $_->[$pknum] } @fullrow;
+		}
+		## Non-integer numbers get set via the strtod command from the 'POSIX' module
+		elsif ($type =~ /real|double|numeric/o) {
+		  @{ $delkeys[$pknum] } = map { strtod $_->[$pknum] } @fullrow;
+		}
+		## Boolean becomes true Perlish booleans via the 'boolean' module
+		elsif ($type eq 'boolean') {
+		  @{ $delkeys[$pknum] } = map { $_->[$pknum] eq 't' ? true : false } @fullrow;
+		}
+		## Everything else gets a direct mapping
+		else {
+		  @{ $delkeys[$pknum] } = map { $_->[$pknum] } @fullrow;
+		}
+		$pknum++;
+	      }
             } ## end of multi-column PKs
 
             ## How many items we end up actually deleting
@@ -8571,6 +8570,17 @@ sub push_rows {
                         for my $cname (@{ $cols }) {
                             $object->{$cname} = shift @cols;
                         }
+
+			## coerce types for columns specified in bucardo.customcoltypes
+                        my $types_sql = "SELECT id, srcdb, schname, tablename, colname, valtype FROM bucardo.customcoltypes WHERE srcdb=? AND schname=? AND tablename=?";
+			my $bucardo_dbh = $self->{masterdbh};
+			my $bucardo_sth = $bucardo_dbh->prepare($types_sql);
+
+			$bucardo_sth->execute($goat->{"db"}, $goat->{"schemaname"}, $goat->{"tablename"});
+			while (my $coltyperow = $bucardo_sth->fetchrow_hashref) {
+			  $goat->{"columnhash"}{$coltyperow->{"colname"}}{"ftype"} = $coltyperow->{"valtype"};
+			}
+
                         ## Coerce non-strings into different objects
                         for my $key (keys %$object) {
                             ## Since mongo is schemaless, don't set null columns in the mongo doc
