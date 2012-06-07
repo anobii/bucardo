@@ -321,7 +321,7 @@ CREATE TABLE bucardo.herd (
 COMMENT ON TABLE bucardo.herd IS $$Named group of tables or sequences from the goat table: used as the 'source' for syncs$$;
 
 --
--- Goats belong to zero or more herds. In most cases, they will 
+-- Goats belong to zero or more herds. In most cases, they will
 -- belong to a single herd if they are being replicated.
 --
 CREATE TABLE bucardo.herdmap (
@@ -556,7 +556,7 @@ CREATE TABLE bucardo.customcoltypes (
   cdate    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE bucardo.customcoltypes IS
-  $$Columns from the source are set to the specified type in the target.$$
+  $$Columns from the source are set to the specified type in the target.$$;
 
 -- Make sure that we are working with known databases
 ALTER TABLE bucardo.customcoltypes
@@ -843,7 +843,7 @@ SECURITY DEFINER
 AS
 $bc$
 
-## Given the name of a db connection, construct the connection 
+## Given the name of a db connection, construct the connection
 ## string for it and then connect to it and log the attempt
 
 use strict; use warnings; use DBI;
@@ -1170,7 +1170,7 @@ if (!$rv->{processed}) {
 
 ## Grab information on all members of this herd
 $SQL = qq{
-        SELECT id, db, schemaname, tablename, pkey, pkeytype, reltype, 
+        SELECT id, db, schemaname, tablename, pkey, pkeytype, reltype,
                ping AS goatping,
                pg_catalog.quote_ident(db)         AS safedb,
                pg_catalog.quote_ident(schemaname) AS safeschema,
@@ -1505,7 +1505,7 @@ END;
           };
           run_sql($SQL,$dbh);
         }
-              
+
         ## Create the bucardo_delta_targets table as needed
         $newschema and goto DELTAT;
         $sth = $sth{haztable};
@@ -1692,8 +1692,8 @@ END;
                       rnames = COALESCE(rnames || ' ', '') || rname ;
                       SELECT INTO idnum SUBSTRING(rname FROM '[[:digit:]]+');
                       IF idnum IS NOT NULL THEN
-                        ids_where = ids_where 
-                          || ' AND (' 
+                        ids_where = ids_where
+                          || ' AND ('
                           || rname
                           || ' = id'
                           || idnum
@@ -1713,7 +1713,7 @@ END;
                       END IF;
                   END LOOP;
 
-                  myst = 'DELETE FROM bucardo.bucardo_delta 
+                  myst = 'DELETE FROM bucardo.bucardo_delta
                   USING (SELECT MAX(txntime) AS maxt, '||ids_sel||'
                          FROM bucardo.bucardo_delta
                          WHERE tablename = '||myoid||'
@@ -1801,18 +1801,18 @@ SELECT 'Fixme'::TEXT;
                       drows BIGINT = 0;
                       trows BIGINT = 0;
                     BEGIN
-                    
+
                       -- Clean out the search_path so the regclass casting works as expected
                       SET LOCAL search_path = pg_catalog;
-                    
+
                       -- See how many syncs are being used by this table
-                      SELECT INTO drows 
+                      SELECT INTO drows
                         COUNT(*)
                         FROM bucardo.bucardo_delta_targets
                         WHERE tablename::regclass::text = \$2;
 
                       RESET search_path;
-                    
+
                       -- If no syncs, no point in going on, as we will never purge anything
                       IF drows < 1 THEN
                         RETURN 'No syncs are using table '||\$2||', according to bucardo_delta_targets';
@@ -1823,7 +1823,7 @@ SELECT 'Fixme'::TEXT;
                         bucardo.bucardo_tablename_maker(\$2, 'delta_');
                       SELECT INTO tracktable
                         bucardo.bucardo_tablename_maker(\$2, 'track_');
-                    
+
                       -- Delete all txntimes from the delta table that:
                       -- 1) Have been used by all syncs listed in bucardo_delta_targets
                       -- 2) Have a matching txntime from the track table
@@ -1831,18 +1831,18 @@ SELECT 'Fixme'::TEXT;
                       myst = 'DELETE FROM bucardo.'
                       || deltatable
                       || ' USING (SELECT txntime AS tt FROM bucardo.'
-                      || tracktable 
+                      || tracktable
                       || ' GROUP BY 1 HAVING COUNT(*) = '
                       || drows
                       || ') AS foo'
                       || ' WHERE txntime = tt'
                       || ' AND txntime < now() - interval '
                       || quote_literal(\$1);
-                    
+
                       EXECUTE myst;
-                    
+
                       GET DIAGNOSTICS drows := row_count;
-                    
+
                       -- Now that we have done that, we can remove rows from the track table
                       -- which have no match at all in the delta table
                       myst = 'DELETE FROM bucardo.'
@@ -1852,11 +1852,11 @@ SELECT 'Fixme'::TEXT;
                       || ' d WHERE d.txntime = bucardo.'
                       || tracktable
                       || '.txntime)';
-                    
+
                       EXECUTE myst;
-                    
+
                       GET DIAGNOSTICS trows := row_count;
-                    
+
                     RETURN 'Rows deleted from '
                       || deltatable
                       || ': '
@@ -1865,7 +1865,7 @@ SELECT 'Fixme'::TEXT;
                       || tracktable
                       || ': '
                       || trows;
-                    
+
                     END;
                     \$clone\$;
                 };
@@ -1884,9 +1884,9 @@ SELECT 'Fixme'::TEXT;
                       myrez TEXT;
                       total INTEGER = 0;
                     BEGIN
-                    
+
                       SET LOCAL search_path = pg_catalog;
-                    
+
                      -- Grab all potential tables to be vacuumed by looking at bucardo_delta_targets
                       FOR myrec IN SELECT DISTINCT tablename::regclass::text
                         FROM bucardo.bucardo_delta_targets LOOP
@@ -1896,7 +1896,7 @@ SELECT 'Fixme'::TEXT;
                         total = total + 1;
                       END LOOP;
 
-                    RESET search_path;                    
+                    RESET search_path;
 
                     RETURN 'Tables processed: ' || total;
                     END;
@@ -1904,7 +1904,7 @@ SELECT 'Fixme'::TEXT;
                 };
             run_sql($SQL,$dbh);
         }
-                    
+
         $newschema and goto SEQUENCE;
         $sth = $sth{haztable};
         $count = $sth->execute('bucardo', 'bucardo_sequences');
@@ -2270,9 +2270,9 @@ SELECT 'Fixme'::TEXT;
             }
 
             ## Check if the bucardo_delta is a custom function, and create if needed
-            $SQL = qq{SELECT trigger_language,trigger_body FROM bucardo_custom_trigger 
-              WHERE goat=$tinfo->{id} 
-              AND status='active' 
+            $SQL = qq{SELECT trigger_language,trigger_body FROM bucardo_custom_trigger
+              WHERE goat=$tinfo->{id}
+              AND status='active'
               AND trigger_type='delta'
     };
             elog(DEBUG, "Running $SQL");
@@ -2374,7 +2374,7 @@ SELECT 'Fixme'::TEXT;
                     my $custom_trigger_level = $rv->{rows}[0]{trigger_level};
                     $SQL = qq{
                CREATE OR REPLACE FUNCTION bucardo."$custom_function_name"()
-               RETURNS TRIGGER 
+               RETURNS TRIGGER
                LANGUAGE $rv->{rows}[0]{trigger_language}
                AS \$notify\$
         };
@@ -2577,7 +2577,7 @@ AS $bc$
 DECLARE
   myrec RECORD;
 BEGIN
-  FOR myrec IN 
+  FOR myrec IN
     SELECT quote_ident(db) || '.' || quote_ident(schemaname) || '.' || quote_ident(tablename) AS t
       FROM goat g
       WHERE NOT EXISTS (SELECT 1 FROM herdmap h WHERE h.goat = g.id)
@@ -2586,7 +2586,7 @@ BEGIN
       RETURN NEXT 'Not used in any herds: ' || myrec.t;
   END LOOP;
 
-  FOR myrec IN 
+  FOR myrec IN
     SELECT quote_ident(db) || '.' || quote_ident(schemaname) || '.' || quote_ident(tablename) AS t
       FROM goat g
       JOIN herdmap h ON h.goat = g.id
@@ -2596,7 +2596,7 @@ BEGIN
       RETURN NEXT 'Not used in source herd: ' || myrec.t;
   END LOOP;
 
-  FOR myrec IN 
+  FOR myrec IN
     SELECT quote_ident(db) || '.' || quote_ident(schemaname) || '.' || quote_ident(tablename) AS t
       FROM goat g
       JOIN herdmap h ON h.goat = g.id
