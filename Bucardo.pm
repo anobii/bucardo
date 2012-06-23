@@ -8606,6 +8606,14 @@ sub push_rows {
                                 }
                                 $object->{$key} = $ts;
                             }
+                            elsif ($goat->{columnhash}{$key}{ftype} =~ /date/o) {
+                                ## coerce date fields to MongoDate type
+                                my $ts = DateTime::Format::Pg->parse_date($object->{$key});
+                                if ($ts->time_zone()->is_floating()) {
+                                    $ts->set_time_zone('UTC');
+                                }
+                                $object->{$key} = $ts;
+                            }
                         }
                         $self->{collection}->insert($object, { safe => 1 });
                     }
