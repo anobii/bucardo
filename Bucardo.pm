@@ -8583,22 +8583,31 @@ sub push_rows {
 
                         ## Coerce non-strings into different objects
                         for my $key (keys %$object) {
+                            $self->glog(qq{Processing $key with value $object->{$key}}, LOG_TERSE);
                             ## Since mongo is schemaless, don't set null columns in the mongo doc
                             if (!defined($object->{$key})) {
                                 delete $object->{$key};
                             }
+                            elsif (!defined($goat->{columnhash}{$key}{ftype}) or
+                                   ($goat->{columnhash}{$key}{ftype} eq '')) {
+                                $self->glog(qq{Undefined or empty key ftype});
+                            }
                             elsif ($goat->{columnhash}{$key}{ftype} =~ /smallint|integer|bigint/o) {
+                                $self->glog(qq{Coercing $key with val $object->{$key} to int});
                                 $object->{$key} = int $object->{$key};
                             }
                             elsif ($goat->{columnhash}{$key}{ftype} eq 'boolean') {
+                                $self->glog(qq{Coercing $key with val $object->{$key} to bool});
                                 if (defined $object->{$key}) {
                                     $object->{$key} = $object->{$key} eq 't' ? true : false;
                                 }
                             }
                             elsif ($goat->{columnhash}{$key}{ftype} =~ /real|double|numeric/o) {
+                                $self->glog(qq{Coercing $key with val $object->{$key} to numeric});
                                 $object->{$key} = strtod($object->{$key});
                             }
                             elsif ($goat->{columnhash}{$key}{ftype} =~ /timestamp/o) {
+                                $self->glog(qq{Coercing $key with val $object->{$key} from timestamp to DateTime});
                                 ## coerce timestamps to Mongo Date type.
                                 my $ts = DateTime::Format::Pg->parse_timestamptz($object->{$key});
                                 if ($ts->time_zone()->is_floating()) {
@@ -8607,6 +8616,7 @@ sub push_rows {
                                 $object->{$key} = $ts;
                             }
                             elsif ($goat->{columnhash}{$key}{ftype} =~ /date/o) {
+                                $self->glog(qq{Coercing $key with val $object->{$key} from date to DateTime});
                                 ## coerce date fields to MongoDate type
                                 my $ts = DateTime::Format::Pg->parse_date($object->{$key});
                                 if ($ts->time_zone()->is_floating()) {
